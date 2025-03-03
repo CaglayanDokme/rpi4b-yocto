@@ -1,0 +1,8 @@
+{
+    "files.associations": {
+        "*.inc": "bitbake",
+        ".clang-tidy": "yaml",
+        ".config": "ini",
+        "*.conf": "bitbake"
+    }
+}
