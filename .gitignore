@@ -1,2 +1,4 @@
 build/*
 !build/conf
+build/conf/conf-notes.txt
+build/conf/conf-summary.txt
