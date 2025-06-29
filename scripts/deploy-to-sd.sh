@@ -370,7 +370,7 @@ if [[ "${DEPLOY_BOOT}" == true ]]; then
 
         # Enable UART for serial console at bootloader
         echo "uart_2ndstage=1"
-    } > "${BOOT_MOUNT_POINT}/config.txt"
+    } | sudo tee "${BOOT_MOUNT_POINT:?}/config.txt" > /dev/null || { logError "Couldn't create config.txt!"; exit 1; }
 
     for dtbFile in "${DTB_IMAGES[@]}"; do
         sudo dtc "${dtbFile}" --in-format dtb --out-format dts --out "${BOOT_MOUNT_POINT}/$(basename "${dtbFile%.dtb}.dts")" --quiet > "/dev/null"
