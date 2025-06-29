@@ -4,5 +4,12 @@
         ".clang-tidy": "yaml",
         ".config": "ini",
         "*.conf": "bitbake"
-    }
+    },
+    "bitbake.pathToBitbakeFolder": "${workspaceFolder}/poky/bitbake",
+    "python.autoComplete.extraPaths": [
+        "${workspaceFolder}/poky/bitbake/lib",
+        "${workspaceFolder}/poky/meta/lib"
+    ],
+    "bitbake.pathToBuildFolder": "${workspaceFolder}/build",
+    "bitbake.pathToEnvScript": "${workspaceFolder}/poky/oe-init-build-env"
 }
