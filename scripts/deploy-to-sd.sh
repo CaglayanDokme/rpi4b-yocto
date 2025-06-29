@@ -364,6 +364,14 @@ if [[ "${DEPLOY_BOOT}" == true ]]; then
     logInfo "Copying images into '${BOOT_MOUNT_POINT}'.."
     sudo cp "${BOOT_FILES[@]}" "${BOOT_MOUNT_POINT}/" || { logError "Couldn't copy images!"; exit 1; }
 
+    {
+        # Enable UART for serial console at Linux kernel
+        echo "enable_uart=1"
+
+        # Enable UART for serial console at bootloader
+        echo "uart_2ndstage=1"
+    } > "${BOOT_MOUNT_POINT}/config.txt"
+
     for dtbFile in "${DTB_IMAGES[@]}"; do
         sudo dtc "${dtbFile}" --in-format dtb --out-format dts --out "${BOOT_MOUNT_POINT}/$(basename "${dtbFile%.dtb}.dts")" --quiet > "/dev/null"
         if [ $? -ne 0 ]; then
