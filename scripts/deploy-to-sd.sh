@@ -331,6 +331,43 @@ if [[ "${DEPLOY_BOOT}" == true ]]; then
         exit 1
     fi
 
+    KERNEL_IMAGES=( "${IMAGES_DIR}/Image"* )
+    if (( ${#KERNEL_IMAGES[@]} == 0 )); then
+        logError "No kernel images found in '${IMAGES_DIR}'!"
+
+        exit 1
+    fi
+
+    MULTIPLE_KERNEL_IMAGES=false
+    for image in "${KERNEL_IMAGES[@]}"; do
+        if [ -L "${image}" ]; then
+            logDebug "Skipping symbolic link '${image##*/}'"
+
+            continue
+        fi
+
+        if [ -z "${KERNEL_IMAGE}" ]; then
+            KERNEL_IMAGE="${image}"
+            logDebug "Using kernel image '${KERNEL_IMAGE##*/}'"
+        else
+            logWarn "-> '${image##*/}'"
+
+            MULTIPLE_KERNEL_IMAGES=true
+        fi
+    done
+
+    if [[ "${MULTIPLE_KERNEL_IMAGES}" == true ]]; then
+        logError "Multiple kernel images found in '${IMAGES_DIR}'! Please specify one explicitly."
+
+        exit 1
+    fi
+
+    if [ -z "${KERNEL_IMAGE}" ]; then
+        logError "No kernel image found in '${IMAGES_DIR}'!"
+
+        exit 1
+    fi
+
     DTB_IMAGES=( "${IMAGES_DIR}/bcm2711-rpi-4-b.dtb")
     for dtbFile in "${IMAGES_DIR}/"*.dtb; do
         if [ ! -f "${dtbFile}" ]; then
@@ -340,7 +377,7 @@ if [[ "${DEPLOY_BOOT}" == true ]]; then
         fi
     done
 
-    BOOT_FILES=( "${SSBL_IMAGES[@]}" "${FSBL_IMAGE}" "${FIXUP_IMAGES[@]}" "${DTB_IMAGES[@]}" )
+    BOOT_FILES=( "${SSBL_IMAGES[@]}" "${FSBL_IMAGE}" "${FIXUP_IMAGES[@]}" "${KERNEL_IMAGE}" "${DTB_IMAGES[@]}" )
 
     logDebug "Checking BOOT target directory '${BOOT_MOUNT_POINT}'.."
     if [ -d "${BOOT_MOUNT_POINT}" ] && [ "$(ls -A "${BOOT_MOUNT_POINT}")" ]; then
@@ -363,6 +400,14 @@ if [[ "${DEPLOY_BOOT}" == true ]]; then
 
     logInfo "Copying images into '${BOOT_MOUNT_POINT}'.."
     sudo cp "${BOOT_FILES[@]}" "${BOOT_MOUNT_POINT}/" || { logError "Couldn't copy images!"; exit 1; }
+
+    # RPi 4B assumes the kernel image is named 'kernel8.img' by default, you can that via kernel=xyz option in config.txt
+    sudo mv "${BOOT_MOUNT_POINT}/${KERNEL_IMAGE##*/}" "${BOOT_MOUNT_POINT}/kernel8.img"
+    if [ $? -ne 0 ]; then
+        logError "Couldn't rename kernel image to 'kernel8.img'!"
+
+        exit 1
+    fi
 
     {
         # Enable UART for serial console at Linux kernel
