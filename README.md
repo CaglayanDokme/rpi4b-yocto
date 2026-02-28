@@ -54,6 +54,25 @@ bitbake core-image-minimal
 - DHCP IP address assignment
 - High connection priority (autoconnect-priority=100)
 
+## SSH Connection
+The image includes [Dropbear](https://matt.ucc.asn.au/dropbear/dropbear.html), a lightweight SSH server, and [Avahi](https://avahi.org/) for mDNS hostname resolution. Once the device is connected to the network, you can connect to it over SSH without needing to know its IP address.
+
+```bash
+ssh root@raspberrypi4-64.local
+```
+
+> **Note:** The image is built with `debug-tweaks` enabled (`EXTRA_IMAGE_FEATURES = "debug-tweaks"`), which sets an empty root password. This is intended for development use only and should not be used in production.
+
+If mDNS is not available on your host, you can connect using the device's IP address instead:
+
+```bash
+# Find the IP address (e.g. from your router's DHCP table, or via the serial console)
+ip addr show wlan0
+
+# Connect via IP
+ssh root@<ip-address>
+```
+
 ## Deploying the image
 Using an helper script, you can deploy the images found in `build/tmp/deploy/images/raspberrypi4-64/` to your SD card. This script can also format the SD card if required.
 
