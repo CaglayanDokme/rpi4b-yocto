@@ -1,0 +1,28 @@
+[connection]
+id=MyHomeWiFi
+uuid=d9243f4b-beb5-425d-98a4-e01b5a44b10d
+type=wifi
+interface-name=wlan0
+autoconnect=true
+autoconnect-priority=100
+
+[wifi]
+ssid=<Your home/work wifi SSID>
+mode=infrastructure
+
+[wifi-security]
+key-mgmt=wpa-psk
+psk=<Your home/work wifi password>
+
+[ipv4]
+method=auto
+dhcp-client-id=raspberrypi
+dhcp-timeout=0
+ignore-auto-routes=false
+ignore-auto-dns=false
+
+[ipv6]
+addr-gen-mode=stable-privacy
+method=auto
+
+[proxy]

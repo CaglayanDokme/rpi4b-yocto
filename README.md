@@ -19,6 +19,41 @@ source poky/oe-init-build-env
 bitbake core-image-minimal
 ```
 
+## WiFi Auto-Connection
+The BSP includes a pre-configured WiFi auto-connection feature using NetworkManager and systemd. The system will automatically connect to your configured WiFi network at boot time.
+
+### Configuration Required
+Before building the image, you **must** customize the WiFi credentials in the connection profile:
+
+**File:** `layers/meta-wifi/recipes-connectivity/networkmanager/files/wifi.nmconnection`
+
+Edit the following fields:
+- `ssid=<Your home/work wifi SSID>` - Replace with your actual WiFi network name
+- `psk=<Your home/work wifi password>` - Replace with your actual WiFi password
+
+Example:
+```ini
+[wifi]
+ssid=MyNetworkName
+
+[wifi-security]
+key-mgmt=wpa-psk
+psk=MySecurePassword123
+```
+
+After editing the credentials, rebuild the image to apply the changes:
+```bash
+source poky/oe-init-build-env
+bitbake core-image-minimal
+```
+
+### Features
+- Automatic WiFi connection at boot
+- NetworkManager-based connection management
+- WPA/WPA2-PSK security support
+- DHCP IP address assignment
+- High connection priority (autoconnect-priority=100)
+
 ## Deploying the image
 Using an helper script, you can deploy the images found in `build/tmp/deploy/images/raspberrypi4-64/` to your SD card. This script can also format the SD card if required.
 
