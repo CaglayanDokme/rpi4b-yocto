@@ -441,34 +441,36 @@ if [[ "${DEPLOY_ROOTFS}" == true ]]; then
         exit 1
     fi
 
-    MULTIPLE_ROOTFS_IMAGES=false
+    # Find all non-symlink rootfs images and select the newest one
+    ROOTFS_CANDIDATES=()
     for image in "${POTENTIAL_ROOTFS_IMAGES[@]}"; do
         if [ -L "${image}" ]; then
             logDebug "Skipping symbolic link '${image##*/}'"
-
             continue
         fi
 
-        if [ -z "${ROOTFS_IMAGE}" ]; then
-            ROOTFS_IMAGE="${image}"
-            logDebug "Using RootFS image '${ROOTFS_IMAGE##*/}'"
-        else
-            logWarn "-> '${image##*/}'"
-
-            MULTIPLE_ROOTFS_IMAGES=true
-        fi
+        ROOTFS_CANDIDATES+=("${image}")
     done
 
-    if [[ "${MULTIPLE_ROOTFS_IMAGES}" == true ]]; then
-        logError "Multiple RootFS images found in '${IMAGES_DIR}'! Please specify one explicitly."
-
-        exit 1
-    fi
-
-    if [ -z "${ROOTFS_IMAGE}" ]; then
+    if (( ${#ROOTFS_CANDIDATES[@]} == 0 )); then
         logError "No RootFS image found in '${IMAGES_DIR}'!"
-
         exit 1
+    elif (( ${#ROOTFS_CANDIDATES[@]} > 1 )); then
+        logWarn "Multiple RootFS images found, selecting the newest one:"
+
+        # Sort by modification time and select the newest
+        ROOTFS_IMAGE=$(ls -t "${ROOTFS_CANDIDATES[@]}" | head -n 1)
+
+        for image in "${ROOTFS_CANDIDATES[@]}"; do
+            if [[ "${image}" == "${ROOTFS_IMAGE}" ]]; then
+                logInfo "-> ${image##*/} (selected)"
+            else
+                logDebug "   ${image##*/}"
+            fi
+        done
+    else
+        ROOTFS_IMAGE="${ROOTFS_CANDIDATES[0]}"
+        logDebug "Using RootFS image '${ROOTFS_IMAGE##*/}'"
     fi
 
     logDebug "Checking ROOTFS target directory '${ROOTFS_MOUNT_POINT}'.."
