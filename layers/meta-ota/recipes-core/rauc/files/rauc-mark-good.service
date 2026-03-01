@@ -1,0 +1,13 @@
+[Unit]
+Description=RAUC Mark Current Boot Slot as Good
+Documentation=https://rauc.readthedocs.io/
+After=network.target rauc.service
+ConditionPathExists=/usr/bin/rauc
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/rauc status mark-good booted
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

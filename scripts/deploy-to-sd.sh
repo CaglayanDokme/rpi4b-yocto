@@ -36,7 +36,7 @@ SD_FORMAT_SCRIPT="${SCRIPT_DIR}/format-sd.sh"
 
 # Mount-points
 BOOT_MOUNT_POINT="${DEVICE_MOUNT_POINT}/BOOT/"
-ROOTFS_MOUNT_POINT="${DEVICE_MOUNT_POINT}/ROOTFS/"
+ROOTFS_MOUNT_POINT="${DEVICE_MOUNT_POINT}/ROOTFS-A/"
 
 ### Functions ###
 showHelp() {
@@ -227,6 +227,7 @@ fi
 
 BOOT_DEV="${DEVICE_NAME}${PARTITION_PREFIX}1"
 ROOTFS_DEV="${DEVICE_NAME}${PARTITION_PREFIX}2"
+# ROOTFS-B (slot B) is left empty on initial deployment; RAUC populates it on first OTA update
 
 if [ ! -d "${IMAGES_DIR}" ]; then
     logError "Images directory '${IMAGES_DIR}' does not exist!"
@@ -246,14 +247,14 @@ if [[ ${FORCE_FORMAT} = true ]]; then
     logInfo "Device '${DEVICE_NAME}' formatted successfully!"
 else
     PARTITION_COUNT=$(sudo sfdisk --dump "${DEVICE_NAME}" | grep --count "^${DEVICE_NAME}")
-    if [ "${PARTITION_COUNT}" -ne 2 ]; then
+    if [ "${PARTITION_COUNT}" -ne 3 ]; then
         # We could've enhanced this by checking the partitioning layout
         # I didn't want to make it too complex
 
         if [ ${PARTITION_COUNT} -eq 0 ]; then
             logWarn "Device '${DEVICE_NAME}' does not have any partitions!"
         else
-            logWarn "Device '${DEVICE_NAME}' does not have 2 partitions, it has ${PARTITION_COUNT}"
+            logWarn "Device '${DEVICE_NAME}' does not have 3 partitions, it has ${PARTITION_COUNT}"
 
             if [ ${PRINT_LEVEL} -le ${LOG_DEBUG} ]; then
                 logDebug "Partitions: "
@@ -416,6 +417,15 @@ if [[ "${DEPLOY_BOOT}" == true ]]; then
         # Enable UART for serial console at bootloader
         echo "uart_2ndstage=1"
     } | sudo tee "${BOOT_MOUNT_POINT:?}/config.txt" > /dev/null || { logError "Couldn't create config.txt!"; exit 1; }
+
+    # cmdline.txt: boot from ROOTFS-A (slot A) on initial deployment
+    # RAUC updates this file when switching slots via its custom bootloader hook
+    {
+        echo "console=serial0,115200 console=tty1 root=/dev/mmcblk0p2 rootfstype=ext4 rootwait rauc.slot=A"
+    } | sudo tee "${BOOT_MOUNT_POINT:?}/cmdline.txt" > /dev/null || { logError "Couldn't create cmdline.txt!"; exit 1; }
+
+    # RAUC active slot marker — must match the root= device in cmdline.txt
+    echo "A" | sudo tee "${BOOT_MOUNT_POINT:?}/rauc_slot" > /dev/null || { logError "Couldn't create rauc_slot!"; exit 1; }
 
     for dtbFile in "${DTB_IMAGES[@]}"; do
         sudo dtc "${dtbFile}" --in-format dtb --out-format dts --out "${BOOT_MOUNT_POINT}/$(basename "${dtbFile%.dtb}.dts")" --quiet > "/dev/null"

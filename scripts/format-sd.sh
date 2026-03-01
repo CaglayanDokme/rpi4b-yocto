@@ -25,7 +25,7 @@ CURRENT_DIR="$(pwd)"
 showHelp() {
     echo "Usage: ${0#"${CURRENT_DIR}"/} --device <device_name> [options]"
     echo ""
-    echo "Format an SD card with 2 partitions: BOOT (FAT), ROOTFS (EXT4)"
+    echo "Format an SD card with 3 partitions: BOOT (FAT), ROOTFS-A (EXT4), ROOTFS-B (EXT4)"
     echo ""
     echo "Options:"
     echo "  --device  <device_name> Path to the SD card device (e.g. /dev/mmcblk0, /dev/sda)"
@@ -168,9 +168,20 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-sudo parted --script --align opt "${DEVICE_NAME}" mkpart primary ext4 128M 100% > /dev/null
+# Split remaining space equally between ROOTFS-A and ROOTFS-B
+DEVICE_CAPACITY_MB=$(( DEVICE_CAPACITY_B / 1048576 ))
+ROOTFS_SPLIT_MB=$(( (DEVICE_CAPACITY_MB + 128) / 2 ))
+
+sudo parted --script --align opt "${DEVICE_NAME}" mkpart primary ext4 128MB "${ROOTFS_SPLIT_MB}MB" > /dev/null
 if [ $? -ne 0 ]; then
-    logError "Couldn't create partition table! 'mkpart' failed for ROOTFS partition"
+    logError "Couldn't create partition table! 'mkpart' failed for ROOTFS-A partition"
+
+    exit 1
+fi
+
+sudo parted --script --align opt "${DEVICE_NAME}" mkpart primary ext4 "${ROOTFS_SPLIT_MB}MB" 100% > /dev/null
+if [ $? -ne 0 ]; then
+    logError "Couldn't create partition table! 'mkpart' failed for ROOTFS-B partition"
 
     exit 1
 fi
@@ -203,7 +214,14 @@ fi
 
 yes | sudo mkfs.ext4 "${DEVICE_NAME}${PARTITION_PREFIX}2" > /dev/null
 if [ $? -ne 0 ]; then
-    logError "Couldn't format ROOTFS partition!"
+    logError "Couldn't format ROOTFS-A partition!"
+
+    exit 1
+fi
+
+yes | sudo mkfs.ext4 "${DEVICE_NAME}${PARTITION_PREFIX}3" > /dev/null
+if [ $? -ne 0 ]; then
+    logError "Couldn't format ROOTFS-B partition!"
 
     exit 1
 fi
@@ -216,9 +234,16 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-sudo e2label "${DEVICE_NAME}${PARTITION_PREFIX}2" "ROOTFS" > /dev/null
+sudo e2label "${DEVICE_NAME}${PARTITION_PREFIX}2" "ROOTFS-A" > /dev/null
 if [ $? -ne 0 ]; then
-    logError "Couldn't rename '${DEVICE_NAME}${PARTITION_PREFIX}2' as 'ROOTFS'!"
+    logError "Couldn't rename '${DEVICE_NAME}${PARTITION_PREFIX}2' as 'ROOTFS-A'!"
+
+    exit 1
+fi
+
+sudo e2label "${DEVICE_NAME}${PARTITION_PREFIX}3" "ROOTFS-B" > /dev/null
+if [ $? -ne 0 ]; then
+    logError "Couldn't rename '${DEVICE_NAME}${PARTITION_PREFIX}3' as 'ROOTFS-B'!"
 
     exit 1
 fi

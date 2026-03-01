@@ -16,7 +16,7 @@ Building the BSP is quite straightforward. The build process will take a while, 
 source poky/oe-init-build-env
 
 # Start the build, the first build will take long (~2 hours)
-bitbake core-image-minimal
+bitbake core-image-base
 ```
 
 ## WiFi Auto-Connection
@@ -44,7 +44,7 @@ psk=MySecurePassword123
 After editing the credentials, rebuild the image to apply the changes:
 ```bash
 source poky/oe-init-build-env
-bitbake core-image-minimal
+bitbake core-image-base
 ```
 
 ### Features
@@ -53,6 +53,85 @@ bitbake core-image-minimal
 - WPA/WPA2-PSK security support
 - DHCP IP address assignment
 - High connection priority (autoconnect-priority=100)
+
+## OTA Updates
+
+The image supports over-the-air (OTA) updates via [RAUC](https://rauc.readthedocs.io/) with an A/B redundant rootfs scheme. If an update fails to boot, the device automatically remains on the previously working slot.
+
+### SD Card Partition Layout
+
+| # | Label    | Filesystem | Purpose                        |
+|---|----------|------------|--------------------------------|
+| 1 | BOOT     | FAT32      | Kernel, DTBs, bootloader files |
+| 2 | ROOTFS-A | ext4       | Active root filesystem (slot A)|
+| 3 | ROOTFS-B | ext4       | Passive slot (populated by OTA)|
+
+> **Note:** The SD card must be re-formatted with the new 3-partition layout before deploying a RAUC-enabled image. Run `bash scripts/format-sd.sh --device <device>` then `bash scripts/deploy-to-sd.sh --device <device>`.
+
+### Signing Keys Setup
+
+RAUC uses a **private key + CA certificate** pair to authenticate update bundles:
+- **Private key** — used at build time (`bitbake rauc-bundle`) to sign the bundle. Never committed to git. Stored at `~/.rauc/rauc-dev.key.pem`.
+- **CA certificate** — baked into the device image at `/etc/rauc/ca.cert.pem`. Used by the device to verify that a bundle was signed by the matching private key.
+
+A pre-generated dev keypair is already set up for this repository:
+- The **cert** is committed at `layers/meta-ota/recipes-core/rauc/files/ca.cert.pem`
+- The **private key** is at `~/.rauc/rauc-dev.key.pem` on the machine where the image was first built
+
+**To build bundles on a different machine**, obtain `rauc-dev.key.pem` from the original developer (share it securely — not via git) and place it at `~/.rauc/rauc-dev.key.pem`. No cert changes or device reflash required.
+
+**To use your own independent keypair** (e.g. after forking the project):
+
+```bash
+mkdir -p ~/.rauc
+openssl req -x509 -newkey rsa:4096 \
+    -keyout ~/.rauc/rauc-dev.key.pem \
+    -out ~/.rauc/rauc-dev-ca.cert.pem \
+    -days 3650 -nodes \
+    -subj "/CN=rauc-dev-ca/O=rpi4b-yocto/C=TR"
+
+# Replace the cert in the layer with your new one
+cp ~/.rauc/rauc-dev-ca.cert.pem layers/meta-ota/recipes-core/rauc/files/ca.cert.pem
+```
+
+Then rebuild the image and reflash the SD card once — after that, only bundles signed with your key will be accepted by the device.
+
+### Building an Update Bundle
+
+> **Note:** Bundles use the `plain` format — the default RPi4B kernel does not include the `dm-verity` module required by the `verity` format.
+
+```bash
+source poky/oe-init-build-env
+bitbake rauc-bundle
+```
+
+The bundle is produced at:
+```
+build/tmp/deploy/images/raspberrypi4-64/rauc-bundle-raspberrypi4-64.raucb
+```
+
+### Applying an Update
+
+> **Note:** The inactive rootfs slot must **not** be mounted when running `rauc install`. If you mounted it for inspection, unmount it first: `umount /mnt/rootfs-b`
+
+```bash
+# 1. Copy the bundle to the device over Wi-Fi
+scp build/tmp/deploy/images/raspberrypi4-64/rauc-bundle-raspberrypi4-64.raucb \
+    root@raspberrypi4-64.local:/root/update-bundle.raucb
+
+# 2. On the device: verify the bundle and check current slot status
+rauc info /root/update-bundle.raucb
+rauc status
+
+# 3. Install the update (writes to the inactive slot)
+rauc install /root/update-bundle.raucb
+
+# 4. Reboot into the new slot
+reboot
+```
+
+After a successful boot, RAUC's `rauc-mark-good.service` automatically marks the new slot as good.
+
 
 ## SSH Connection
 The image includes [Dropbear](https://matt.ucc.asn.au/dropbear/dropbear.html), a lightweight SSH server, and [Avahi](https://avahi.org/) for mDNS hostname resolution. Once the device is connected to the network, you can connect to it over SSH without needing to know its IP address.

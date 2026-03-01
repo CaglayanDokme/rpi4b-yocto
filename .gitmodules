@@ -6,3 +6,7 @@
 	path = layers/meta-raspberrypi
 	url = git://git.yoctoproject.org/meta-raspberrypi
 	branch = scarthgap
+[submodule "layers/meta-rauc"]
+	path = layers/meta-rauc
+	url = https://github.com/rauc/meta-rauc.git
+	branch = scarthgap
