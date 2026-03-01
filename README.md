@@ -1,6 +1,13 @@
 # Yocto-based BSP for Raspberry Pi 4B
 This repository provides a Yocto-based Board Support Package (BSP) for the Raspberry Pi 4B. It includes the necessary configurations and recipes to build a minimal Linux image for the Raspberry Pi 4B using the Yocto Project.
 
+### Features
+- **systemd** init system
+- **Wi-Fi auto-connection** via NetworkManager — credentials can be configured at build time
+- **mDNS/Avahi** — access the device as `raspberrypi4-64.local` without knowing its IP
+- **SSH access** via Dropbear
+- **OTA updates** via [RAUC](https://rauc.readthedocs.io/) with A/B redundant rootfs — update the running system over Wi-Fi; automatic rollback if the new image fails to boot
+
 ## Cloning the repository
 
 ```Bash
@@ -60,11 +67,11 @@ The image supports over-the-air (OTA) updates via [RAUC](https://rauc.readthedoc
 
 ### SD Card Partition Layout
 
-| # | Label    | Filesystem | Purpose                        |
-|---|----------|------------|--------------------------------|
-| 1 | BOOT     | FAT32      | Kernel, DTBs, bootloader files |
-| 2 | ROOTFS-A | ext4       | Active root filesystem (slot A)|
-| 3 | ROOTFS-B | ext4       | Passive slot (populated by OTA)|
+| #   | Label    | Filesystem | Purpose                         |
+| --- | -------- | ---------- | ------------------------------- |
+| 1   | BOOT     | FAT32      | Kernel, DTBs, bootloader files  |
+| 2   | ROOTFS-A | ext4       | Active root filesystem (slot A) |
+| 3   | ROOTFS-B | ext4       | Passive slot (populated by OTA) |
 
 > **Note:** The SD card must be re-formatted with the new 3-partition layout before deploying a RAUC-enabled image. Run `bash scripts/format-sd.sh --device <device>` then `bash scripts/deploy-to-sd.sh --device <device>`.
 
